@@ -1,0 +1,5 @@
+venv*/*
+credentials.json
+last_processed_message.txt
+Files/*
+log.txt
