@@ -16,6 +16,11 @@ ALLOWED_MIME_TYPES = [
     'application/msword',
     'text/plain']
 FILES_DIR = 'Files'
+MICROSOFT_WORD_PATH = 'C:\Program Files\Microsoft Office\Office16\winword.exe'
+PDFTOPRINTER_PATH = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)),
+    'additional',
+    'PDFtoPrinter.exe')
 
 
 def read_credentials():
@@ -38,21 +43,24 @@ def get_updates(access_token, offset=0):
     :returns: decoded response json.
     """
     resp = requests.get(TELEGRAM_API_URL + 'bot' +
-                        access_token + '/getUpdates?offset=' + str(offset))
+        access_token +
+        ('/getUpdates?offset=' + str(offset) if offset else ''))
     return resp
 
 
-def send_message(access_token, chat_id, text):
+def send_message(access_token, chat_id, text, reply_to_id=0):
     """
     Send message to specified chat.
 
     :param access_token: string with bot access token
     :param chat_id: integer with chat id
     :param text: string with message to be sent
+    :param reply_to_id: integer with id of message to reply. 
     """
     requests.get(TELEGRAM_API_URL + 'bot' + access_token +
-                 '/sendMessage?' + 'chat_id=' + str(chat_id) +
-                 '&text=' + str(text))
+        '/sendMessage?' + 'chat_id=' + str(chat_id) +
+        '&text=' + str(text) + 
+        ('&reply_to_message_id=' + str(reply_to_id) if reply_to_id else ''))
 
 
 def download_file(access_token, file_id):
@@ -101,6 +109,19 @@ def download_file(access_token, file_id):
     else:
         return None
 
+
+def log(text):
+    """
+    Log specified text with timestamp.
+    
+    :param text: string with text to log
+    """
+    # Log message
+    log_msg = str(datetime.datetime.now()) + "\t" + text
+    with open(LOG_FILE, encoding='utf-8', mode='a') as log_f:
+              log_f.write(log_msg + "\n")
+
+
 # Start
 
 
@@ -117,11 +138,10 @@ else:
         content = f_content.read().strip()
 if content:  # if not empty
     last_processed_message = int(content)
-
-print('lpm: ' + str(last_processed_message), flush=True)
-
 # Long polling for updates
-print("Bot started. Listening new messages...", flush=True)
+log_msg = "Telegram bot @prlntlng_bot started. Waiting for new files..."
+log(log_msg)
+print(log_msg, flush=True)
 while True:
     resp = get_updates(access_token, last_processed_message + 1)
     if resp.ok:
@@ -142,45 +162,50 @@ while True:
                 if 'file_id' in upd['message']['document']:
                     file_id = upd['message']['document']['file_id']
             chat_id = upd['message']['chat']['id']
+            message_id = upd['message']['message_id']
             # Log message
-            log_msg = str(datetime.datetime.now()) + "\t" \
-                + "User '" + user_name + "'(" + user_nickname + ", " \
-                + "id=" + str(user_id) + ")" + "\t" \
-                + "message: '" + message_text + "'"
-            with open(LOG_FILE, encoding='utf-8', mode='a') as log_f:
-                log_f.write(log_msg + "\n")
-            # Process request
-            if message_text:  # if message exists
+            log('Message ' + json.dumps(upd))
+            # Process message
+            if mime_type in ALLOWED_MIME_TYPES:  # if file sent
+                # Try to download file
+                file_path = download_file(access_token, file_id)
+                # If file downloaded it has a path
+                if file_path:
+                    # Print different file types in different ways
+                    if mime_type == 'application/vnd.openxmlformats' \
+                            '-officedocument.wordprocessingml.document' \
+                        or mime_type == 'application/msword' \
+                        or mime_type == 'text/plain':
+                        # Print via MSWord
+                        command = '"' + MICROSOFT_WORD_PATH + '" ' \
+                                '"' + file_path + '" ' \
+                                '/mFilePrintDefault ' \
+                                '/mFileCloseOrExit ' \
+                                '/q ' \
+                                '/n'
+                        subprocess.Popen(command)
+                        send_message(access_token, chat_id, 
+                                    'Печать началась', message_id)
+                    elif mime_type == 'application/pdf':
+                        # Print via PdfToPrinter
+                        command = '"' + PDFTOPRINTER_PATH + '" ' + file_path
+                        log(command)
+                        subprocess.Popen(command)
+                        send_message(access_token, chat_id, 
+                                    'Печать началась', message_id) 
+                else:
+                    log_msg = 'Error during downloading file_id: ' \
+                        + str(file_id) \
+                        + ' Sent by user ' + str(user_nickname)
+                    log(log_msg)
+                    send_message(access_token, chat_id, log_msg)
+            elif message_text:  # if message is not empty
                 send_message(
                     access_token, chat_id,
                     "Привет!\n" +
-                    "Этот бот может напечатать документ на принтаре.\n" +
+                    "Этот бот может напечатать документ на принтере.\n" +
                     "Для того чтобы начать печать, отправь " +
                     "документ сюда.")
-            elif mime_type in ALLOWED_MIME_TYPES:
-                # process
-                print("'" + str(mime_type) + "'", flush=True)
-                file_path = download_file(access_token, file_id)
-                if file_path:
-                    print(file_path, flush=True)
-                    # Print document
-                    args = '"C:\\\\Program Files\\\\gs\\\\bin\\\\gswin32c" ' \
-                           '-sDEVICE=mswinpr2 ' \
-                           '-dBATCH ' \
-                           '-dNOPAUSE ' \
-                           '-dFitPage ' \
-                           '-sOutputFile="%printer%' + default_printer + '" '
-                    ghostscript = args + file_path.replace('\\', '\\\\')
-                    subprocess.call(ghostscript, shell=True)
-                    print('Printed successfully', flush=True)
-                else:
-                    log_msg = str(datetime.datetime.now()) + "\t" \
-                        + 'Error during downloading file_id: ' \
-                        + str(file_id) \
-                        + ' Sent by user ' + str(user_nickname)
-                    send_message(access_token, chat_id, log_msg)
-                    with open(LOG_FILE, encoding='utf-8', mode='a') as log_f:
-                            log_f.write(log_msg + "\n")
             else:
                 send_message(
                     access_token, chat_id,
@@ -193,8 +218,5 @@ while True:
         with open(LAST_PROC_MESS_FILE, encoding='utf-8', mode='w') as lpm_f:
             lpm_f.write(str(last_processed_message))
     else:
-        log_msg = str(datetime.datetime.now()) + "\t" \
-            + 'Error, status code: ' + str(resp.status_code) \
-            + ', responce text: ' + str(resp.text)
-        with open(LOG_FILE, encoding='utf-8', mode='a') as log_f:
-                log_f.write(log_msg + "\n")
+        log('Error, status code: ' + str(resp.status_code) \
+            + ', responce text: ' + str(resp.text))
