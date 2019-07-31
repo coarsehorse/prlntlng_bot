@@ -5,17 +5,21 @@ import datetime
 import os
 import subprocess
 
-CREDENTIALS_FILE = 'credentials.json'
+CREDENTIALS_FILE = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), 'credentials.json')
 TELEGRAM_API_URL = 'https://api.telegram.org/'
 TELEGRAM_FILE_API_URL = 'https://api.telegram.org/file/'
-LAST_PROC_MESS_FILE = 'last_processed_message.txt'
-LOG_FILE = 'log.txt'
+LAST_PROC_MESS_FILE = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), 'last_processed_message.txt')
+LOG_FILE = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), 'log.txt')
 ALLOWED_MIME_TYPES = [
     'application/pdf',
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     'application/msword',
     'text/plain']
-FILES_DIR = 'Files'
+FILES_DIR = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), 'Files')
 MICROSOFT_WORD_PATH = 'C:\Program Files\Microsoft Office\Office16\winword.exe'
 PDFTOPRINTER_PATH = os.path.join(
     os.path.dirname(os.path.abspath(__file__)),
@@ -97,9 +101,7 @@ def download_file(access_token, file_id):
             else:
                 file_name = file_name + '_' + ms_now
             # Get future file path
-            file_path = os.path.join(
-                os.path.dirname(os.path.abspath(__file__)),
-                FILES_DIR, file_name)
+            file_path = os.path.join(FILES_DIR, file_name)
             # Download file
             with open(file_path, mode='wb') as file:
                 file.write(resp.content)
