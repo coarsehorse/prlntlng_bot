@@ -170,9 +170,7 @@ while True:
                            '-dNOPAUSE ' \
                            '-dFitPage ' \
                            '-sOutputFile="%printer%' + default_printer + '" '
-                    ghostscript = args \
-                        + os.path.join(os.getcwd(), 'myFile.pdf') \
-                            .replace('\\', '\\\\')
+                    ghostscript = args + file_path.replace('\\', '\\\\')
                     subprocess.call(ghostscript, shell=True)
                     print('Printed successfully', flush=True)
                 else:
