@@ -46,8 +46,9 @@ def get_updates(access_token, offset=0):
     :param offset: the last last update id + 1
     :returns: decoded response json.
     """
-    resp = requests.get(TELEGRAM_API_URL + 'bot' +
-        access_token +
+    resp = requests.get(
+        TELEGRAM_API_URL +
+        'bot' + access_token +
         ('/getUpdates?offset=' + str(offset) if offset else ''))
     return resp
 
@@ -59,11 +60,14 @@ def send_message(access_token, chat_id, text, reply_to_id=0):
     :param access_token: string with bot access token
     :param chat_id: integer with chat id
     :param text: string with message to be sent
-    :param reply_to_id: integer with id of message to reply. 
+    :param reply_to_id: integer with id of message to reply.
     """
-    requests.get(TELEGRAM_API_URL + 'bot' + access_token +
-        '/sendMessage?' + 'chat_id=' + str(chat_id) +
-        '&text=' + str(text) + 
+    requests.get(
+        TELEGRAM_API_URL +
+        'bot' + access_token +
+        '/sendMessage?' +
+        'chat_id=' + str(chat_id) +
+        '&text=' + str(text) +
         ('&reply_to_message_id=' + str(reply_to_id) if reply_to_id else ''))
 
 
@@ -115,13 +119,13 @@ def download_file(access_token, file_id):
 def log(text):
     """
     Log specified text with timestamp.
-    
+
     :param text: string with text to log
     """
     # Log message
     log_msg = str(datetime.datetime.now()) + "\t" + text
     with open(LOG_FILE, encoding='utf-8', mode='a') as log_f:
-              log_f.write(log_msg + "\n")
+        log_f.write(log_msg + "\n")
 
 
 # Start
@@ -129,7 +133,6 @@ def log(text):
 
 credentials = read_credentials()
 access_token = credentials['access_token']
-default_printer = credentials['default_printer']
 last_processed_message = 0
 content = ''
 if not os.path.exists(LAST_PROC_MESS_FILE):
@@ -186,15 +189,15 @@ while True:
                                 '/q ' \
                                 '/n'
                         subprocess.Popen(command)
-                        send_message(access_token, chat_id, 
-                                    'Печать началась', message_id)
+                        send_message(access_token, chat_id,
+                                     'Печать началась', message_id)
                     elif mime_type == 'application/pdf':
                         # Print via PdfToPrinter
                         command = '"' + PDFTOPRINTER_PATH + '" ' + file_path
                         log(command)
                         subprocess.Popen(command)
-                        send_message(access_token, chat_id, 
-                                    'Печать началась', message_id) 
+                        send_message(access_token, chat_id,
+                                     'Печать началась', message_id)
                 else:
                     log_msg = 'Error during downloading file_id: ' \
                         + str(file_id) \
@@ -207,18 +210,18 @@ while True:
                     "Привет!\n" +
                     "Этот бот может напечатать документ на принтере.\n" +
                     "Для того чтобы начать печать, отправь " +
-                    "документ сюда.")
+                    "документ сюда.", message_id)
             else:
                 send_message(
                     access_token, chat_id,
                     "Не поддерживаемый тип документа!\n" +
                     "Я умею работать только с" +
-                    " .doc .docx .pdf .txt")
+                    " .doc .docx .pdf .txt", message_id)
             # Update last processed message id
             last_processed_message = update_id
         # Save last processed message id
         with open(LAST_PROC_MESS_FILE, encoding='utf-8', mode='w') as lpm_f:
             lpm_f.write(str(last_processed_message))
     else:
-        log('Error, status code: ' + str(resp.status_code) \
-            + ', responce text: ' + str(resp.text))
+        log('Error, status code: ' + str(resp.status_code) +
+            ', responce text: ' + str(resp.text))
